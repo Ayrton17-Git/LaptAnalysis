@@ -2,12 +2,6 @@ pandas
 seaborn
 numpy
 matplotlib
-os
-tkinter
-datetime
 dash
-threading
-webbrowser
 plotly
 reportlab
-subprocess
