@@ -815,7 +815,7 @@ def update_best_perf(cat, car_model, mode):
 import platform
 
 DEBUG = False
-PORT = 8051
+# PORT = 8051
 
 def kill_process_using_port(port):
     if platform.system() == "Windows":
@@ -838,15 +838,29 @@ def kill_process_using_port(port):
         print("Supportato solo su Windows")
 
 def open_browser():
-    webbrowser.open_new(f"http://127.0.0.1:{PORT}/")
+    webbrowser.open_new(f"http://127.0.0.1:{PORT}")
+
+# if __name__ == '__main__':
+#     kill_process_using_port(PORT)
+
+#     if not DEBUG:
+#         threading.Timer(1, open_browser).start()
+
+#     app.run(debug=DEBUG, port=PORT)
+
+def get_port():
+    # Se su Render, usa la porta da env, altrimenti usa la porta di default 8051
+    return int(os.environ.get("PORT", 8051))
 
 if __name__ == '__main__':
-    kill_process_using_port(PORT)
-
+    PORT = get_port()
+    app.server.config["SERVER_NAME"] = f"127.0.0.1:{PORT}"
+    # Solo in locale (quando DEBUG=False, quindi in locale) uccidi il processo che occupa la porta
     if not DEBUG:
+        kill_process_using_port(PORT)
         threading.Timer(1, open_browser).start()
-
-    app.run(debug=DEBUG, port=PORT)
+    host = '0.0.0.0' if os.environ.get('RENDER') else '127.0.0.1'
+    app.run(debug=DEBUG, host=host, port=PORT)
 
  
 #https://www.dash-bootstrap-components.com/examples/simple-sidebar/page-2
