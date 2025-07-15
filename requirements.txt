@@ -5,3 +5,4 @@ matplotlib
 dash
 plotly
 reportlab
+dash-bootstrap-components
