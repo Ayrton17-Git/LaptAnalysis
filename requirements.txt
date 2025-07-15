@@ -1,0 +1,13 @@
+pandas
+seaborn
+numpy
+matplotlib
+ospath
+tkinter
+datetime
+dash
+threading
+webbrowser
+plotly
+reportlab
+subprocess
