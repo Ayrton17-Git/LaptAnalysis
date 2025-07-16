@@ -952,22 +952,43 @@ def populate_avg_filters(pathname):
 # layout DRIVER PERFORMANCE BOXPLOT
 
 driver_perf_layout = html.Div([
-    html.H3("Driver Performance - Boxplot", style={"fontFamily": "Aptos", "fontSize": "18px", "marginBottom": "20px"}),
+    html.H3("Driver Performance - Boxplot", style={
+        "fontFamily": "Aptos", 
+        "fontSize": "18px", 
+        "marginBottom": "20px"
+    }),
 
-    html.Div(id="driver-boxplots", style={"display": "flex", "flexDirection": "column", "gap": "40px"})
+    html.Div([
+        html.Label("X-axis Min"),
+        dcc.Input(id="xaxis-min", type="number", debounce=True),
+
+        html.Label("X-axis Max", style={"marginLeft": "20px"}),
+        dcc.Input(id="xaxis-max", type="number", debounce=True),
+    ], style={
+        "padding": "10px", 
+        "fontFamily": "Aptos", 
+        "fontSize": "14px"
+    }),
+
+    html.Div(id="driver-boxplots", style={
+        "display": "flex", 
+        "flexDirection": "column", 
+        "gap": "40px"
+    })
 ])
 
 import plotly.graph_objects as go
 
 @app.callback(
     Output("driver-boxplots", "children"),
-    Input("url", "pathname")
+    Input("url", "pathname"),
+    Input("xaxis-min", "value"),
+    Input("xaxis-max", "value")
 )
-def render_driver_perf(pathname):
+def render_driver_perf(pathname, x_min, x_max):
     if pathname != "/driver-perf":
         raise PreventUpdate
 
-    # Ordina Driver per mediana Lap Time crescente
     min_df = (
         df.groupby("Driver")["Lap Time (s)"]
         .min()
@@ -977,7 +998,6 @@ def render_driver_perf(pathname):
     sorted_drivers = min_df["Driver"].tolist()
     df["Driver"] = pd.Categorical(df["Driver"], categories=sorted_drivers, ordered=True)
 
-    # BOX PLOT UNICO
     fig = go.Figure()
 
     for driver in sorted_drivers:
@@ -994,9 +1014,9 @@ def render_driver_perf(pathname):
 
         fig.add_trace(go.Box(
             x=filtered_laps["Lap Time (s)"],
-            y=[driver] * len(filtered_laps),  # MUST match sorted_drivers exactly
+            y=[driver] * len(filtered_laps),
             name=driver,
-            boxpoints="outliers",  # o "suspectedoutliers" o "False"
+            boxpoints="outliers",
             jitter=0.3,
             pointpos=0,
             marker=dict(size=4, color="blue", opacity=0.6),
@@ -1008,35 +1028,54 @@ def render_driver_perf(pathname):
     fig.update_layout(
         height=25 * len(sorted_drivers) + 150,
         margin=dict(l=120, r=20, t=20, b=30),
-        xaxis_title="Lap Time (s)",
+        xaxis=dict(
+            title="Lap Time (s)",
+            side="top",
+            range=[x_min, x_max] if x_min is not None and x_max is not None else None
+        ),
         yaxis=dict(
             title="Driver",
             categoryorder="array",
-            categoryarray=sorted_drivers,  # Forza l'ordine
+            categoryarray=sorted_drivers,
             tickfont=dict(size=10),
             autorange="reversed"
         ),
-        xaxis=dict(
-            title="Lap Time (s)",
-            side="top"  # <--- QUESTA È LA CHIAVE
-        ),
-        font=dict(family="Aptos", size=12),
+        font=dict(family="Aptos", size=12)
     )
 
-    # TABELLA UNICA sotto il grafico
     stats_df = dr_best[dr_best["Driver"].isin(sorted_drivers)].copy()
     stats_df = stats_df[["Driver", "Laptime", "Theo", "Avg Pace", "Dev Std"]]
     stats_df["Driver"] = pd.Categorical(stats_df["Driver"], categories=sorted_drivers, ordered=True)
     stats_df = stats_df.sort_values("Driver")
 
-    # Evidenziazione Driver se CarNumber corrisponde
     style_data_conditional = []
-    if "CarNumber" in globals():  # Assicurati che esista
+
+    if "CarNumber" in globals():
         drivers_to_highlight = dr_best[dr_best["Car No."] == CarNumber]["Driver"].unique()
         for driver in drivers_to_highlight:
             style_data_conditional.append({
                 "if": {"filter_query": f'{{Driver}} = "{driver}"'},
                 "backgroundColor": "#ffff66",
+                "color": "black"
+            })
+
+    # Color scale
+    import matplotlib
+    import matplotlib.cm as cm
+
+    def value_to_color(value, vmin, vmax):
+        norm = matplotlib.colors.Normalize(vmin=vmin, vmax=vmax)
+        cmap = cm.get_cmap('RdYlGn_r')
+        rgba = cmap(norm(value))
+        r, g, b, _ = [int(255 * c) for c in rgba]
+        return f'rgb({r},{g},{b})'
+
+    for col in ["Laptime", "Theo", "Avg Pace", "Dev Std"]:
+        vmin, vmax = stats_df[col].min(), stats_df[col].max()
+        for i, val in enumerate(stats_df[col]):
+            style_data_conditional.append({
+                "if": {"row_index": i, "column_id": col},
+                "backgroundColor": value_to_color(val, vmin, vmax),
                 "color": "black"
             })
 
